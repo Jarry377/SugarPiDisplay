@@ -23,6 +23,10 @@ Installing Dependencies
 
 ``sudo apt-get install python3-smbus``
 
+``sudo apt-get install libopenjp2-7``
+
+``sudo apt-get install libtiff5``
+
 ``sudo apt-get install git``
 
 
