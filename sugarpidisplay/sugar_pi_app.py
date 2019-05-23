@@ -37,7 +37,7 @@ class SugarPiApp():
 	interval_seconds = 300
 	ip_show_seconds = 6
 	ip_show_seconds_pc_mode = 2
-	__args = {'debug_mode': False, 'pc_mode': False}
+	__args = {'debug_mode': False, 'pc_mode': False, 'epaper': False}
 
 	logger = None
 	config = {}
@@ -71,6 +71,9 @@ class SugarPiApp():
 		if (self.__args['pc_mode']):
 			from .console_display import ConsoleDisplay
 			self.glucoseDisplay = ConsoleDisplay(self.logger)
+		elif (self.__args['epaper']):
+			from .epaper_display import EpaperDisplay
+			self.glucoseDisplay = EpaperDisplay(self.logger)
 		else:
 			from .twoline_display import TwolineDisplay
 			self.glucoseDisplay = TwolineDisplay(self.logger)
@@ -82,6 +85,8 @@ class SugarPiApp():
 			self.__args['debug_mode'] = True
 		if ("pc" in sys.argv):
 			self.__args['pc_mode'] = True
+		if ("epaper" in sys.argv):
+			self.__args['epaper'] = True
 
 	def __init_logger(self):
 		self.logger = logging.getLogger(__name__)
