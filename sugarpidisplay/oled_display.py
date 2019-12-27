@@ -62,7 +62,7 @@ class OledDisplay:
         return True
 
     def close(self):
-        self.__epd.init(self.__epd.lut_full_update)
+        self.__epd.init(self.__epd.FULL_UPDATE)
         self.__epd.Clear(0xFF)
         self.__epd.sleep()
         self.__epd = None
@@ -78,15 +78,16 @@ class OledDisplay:
             self.__hBlackImage.paste(self.__imgAge, self.__rectAge.xy)
             self.__hBlackImage.paste(self.__imgTrend, self.__rectTrend.xy)
             if self.__allDirty:
-                self.__epd.init(self.__epd.lut_full_update)
+                self.__epd.init(self.__epd.FULL_UPDATE)
                 self.__allDirty = False
+                self.__epd.display(self.__epd.getbuffer(self.__hBlackImage))
             else:
-                self.__epd.init(self.__epd.lut_partial_update)
-            self.__epd.display(self.__epd.getbuffer(self.__hBlackImage.rotate(180)))
+                self.__epd.init(self.__epd.PART_UPDATE)
+                self.__epd.displayPartial(self.__epd.getbuffer(self.__hBlackImage))
             self.__epd.sleep()
         if self.__screenMode == "text":
-            self.__epd.init(self.__epd.lut_full_update)
-            self.__epd.display(self.__epd.getbuffer(self.__hBlackImage.rotate(180)))
+            self.__epd.init(self.__epd.FULL_UPDATE)
+            self.__epd.display(self.__epd.getbuffer(self.__hBlackImage))
             self.__epd.sleep()
 
 
@@ -99,7 +100,7 @@ class OledDisplay:
         #draw.rectangle(((0,0), size), outline = (0), fill = (255) )
 
     def clear(self):
-        self.__epd.init(self.__epd.lut_full_update)
+        self.__epd.init(self.__epd.FULL_UPDATE)
         print("Clear...")
         self.__epd.Clear(0xFF)
         self.__epd.sleep()
@@ -114,7 +115,7 @@ class OledDisplay:
         self.__setScreenModeToText()
         line0 = line0 if line0 is not None else ""
         line1 = line1 if line1 is not None else ""
-        
+
         self.__logger.debug("Display: " + line0 + " || " + line1)
         print("Display: " + line0 + " || " + line1)
 
@@ -192,7 +193,7 @@ class OledDisplay:
         now = datetime.datetime.now().strftime('%I:%M%p')
         now = now.replace("AM", "a").replace("PM", "p")
         now = now.rjust(6)
-        
+
         self.__wipeImage(self.__imgAge)
         draw = ImageDraw.Draw(self.__imgAge)
         self.__drawText(draw, (5,6), ageStr, self.__fontAge)
