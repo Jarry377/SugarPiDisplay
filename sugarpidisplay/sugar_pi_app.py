@@ -72,8 +72,8 @@ class SugarPiApp():
 			from .console_display import ConsoleDisplay
 			self.glucoseDisplay = ConsoleDisplay(self.logger)
 		else:
-			from .oled_display import OledDisplay
-			self.glucoseDisplay = OledDisplay(self.logger)
+			from .epaper_display import EpaperDisplay
+			self.glucoseDisplay = EpaperDisplay(self.logger)
 		self.glucoseDisplay.open()
 		self.glucoseDisplay.clear()
 
@@ -174,7 +174,7 @@ class SugarPiApp():
 		ctx.setNextState(State.GetWifi)
 		ctx.setNextRunDelaySeconds(0)
 		
-		self.glucoseDisplay.show_centered(True, "Initializing", "")
+		self.glucoseDisplay.show_centered("Initializing", "")
 		
 		while (not self.exit_event_handler.exit_now):
 			if (ctx.CurrentState == State.ReadValues or ctx.CurrentState == State.ReLogin):
@@ -214,7 +214,7 @@ class SugarPiApp():
 			self.glucoseDisplay.updateAnimation()
 
 	def __getWifi(self,ctx):
-		self.glucoseDisplay.show_centered(False, "Waiting", "Wifi")
+		self.glucoseDisplay.show_centered("Waiting", "Wifi")
 		ip = get_ip_address('wlan0')
 		if (ip == ""):
 			ctx.setNextRunDelaySeconds(1)
@@ -225,7 +225,7 @@ class SugarPiApp():
 		if (ctx.IsNewState):
 			ip = get_ip_address('wlan0')
 			self.logger.info("Wifi IP: " + ip)
-			self.glucoseDisplay.show_centered(True, ip, "")
+			self.glucoseDisplay.show_centered(ip, "")
 			seconds = self.ip_show_seconds_pc_mode if self.__args['pc_mode'] else self.ip_show_seconds
 			ctx.setRunDuration(seconds)
 			return
@@ -233,18 +233,18 @@ class SugarPiApp():
 			ctx.setNextState(State.LoadConfig)
 
 	def __runLoadConfig(self,ctx):
-		self.glucoseDisplay.show_centered(False, "Loading", "Config")
+		self.glucoseDisplay.show_centered("Loading", "Config")
 		if (not self.__read_config() or not self.__get_reader()):
-			self.glucoseDisplay.show_centered(True, "Invalid Config", "Will Retry")
+			self.glucoseDisplay.show_centered("Invalid Config", "Will Retry")
 			ctx.setNextRunDelaySeconds(5)
 			return
 		ctx.setNextState(State.FirstLogin)
 
 	def __runFirstLogin(self,ctx):
-		self.glucoseDisplay.show_centered(False, "Attempting", "Login")
+		self.glucoseDisplay.show_centered("Attempting", "Login")
 		if (not self.reader.login()):
 			ctx.setNextRunDelaySeconds(180)
-			self.glucoseDisplay.show_centered(True, "Login Failed", "Will Retry")
+			self.glucoseDisplay.show_centered("Login Failed", "Will Retry")
 			return
 		self.logger.info("Successful login")
 		ctx.setNextState(State.ReadValues)
@@ -252,7 +252,7 @@ class SugarPiApp():
 	def __runReLogin(self,ctx):
 		if (not self.reader.login()):
 			ctx.setNextState(State.FirstLogin)
-			self.glucoseDisplay.show_centered(True, "Re-login Failed", "Will Retry")
+			self.glucoseDisplay.show_centered("Re-login Failed", "Will Retry")
 			return
 		self.logger.info("Successful login refresh")
 		ctx.setNextState(State.ReadValues)

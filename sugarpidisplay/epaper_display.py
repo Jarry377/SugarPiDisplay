@@ -11,7 +11,7 @@ class Rect:
         self.xy = xy
         self.size = size
 
-class OledDisplay:
+class EpaperDisplay:
 
     __epd = None
     __screenMode = ""
@@ -109,9 +109,7 @@ class OledDisplay:
         self.__wipeImage(self.__hBlackImage)
         self.__screenMode = ""
 
-    def show_centered(self, vital, line0, line1):
-        if not vital:
-            return
+    def show_centered(self, line0, line1):
         self.__setScreenModeToText()
         line0 = line0 if line0 is not None else ""
         line1 = line1 if line1 is not None else ""
