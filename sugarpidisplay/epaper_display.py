@@ -1,12 +1,15 @@
 import sugarpidisplay.epd2in13_V2 as epd2in13
 import datetime
+import logging
 import os
 import time
 from PIL import Image,ImageDraw,ImageFont
 import traceback
 from .trend import Trend
 
-class Area:
+minLogLevel = logging.INFO
+
+class Panel:
     def __init__(self,xy,size):
         self.xy = xy
         self.size = size
@@ -16,26 +19,31 @@ class EpaperDisplay:
     __epd = None
     __screenMode = ""
     __logger = None
-    __hBlackImage = None
+    __hPortraitImage = None
+    __hLandscapeImage = None
 
     __dirty = False
     __allDirty = False
 
     __lastAge = 999
     __lastTrend = Trend.NONE
+    __lastValue = None
+    __lastOld = False
 
     __arrowImgSingle = None
     __arrowImgDouble = None
 
     def __init__(self, logger):
         self.__logger = logger
-        self.__hBlackImage = Image.new('1', (epd2in13.EPD_HEIGHT, epd2in13.EPD_WIDTH), 255)
+        self.__hPortraitImage = Image.new('1', (epd2in13.EPD_WIDTH, epd2in13.EPD_HEIGHT), 255)   # 122x250
+        self.__hLandscapeImage = Image.new('1', (epd2in13.EPD_HEIGHT, epd2in13.EPD_WIDTH), 255)   # 250x122
 
-        self.__areaBG = Area((0,0), (125,70))
-        self.__areaAge = Area((0,70), (73,52))
-        self.__areaTrend = Area((73,70), (52,52))
-        #__rectGraph = Area(104,0,0,50)
-        self.__allAreas = [self.__areaBG, self.__areaAge, self.__areaTrend]
+        self.__bgPanel = Panel((0,0), (122,70))
+        self.__agePanel = Panel((0,70), (73,52))
+        self.__trendPanel = Panel((70,70), (52,52))
+        self.__bannerPanel = Panel((0,0), (epd2in13.EPD_HEIGHT, epd2in13.EPD_WIDTH))
+
+        self.__allPanels = [self.__bgPanel, self.__agePanel, self.__trendPanel, self.__bannerPanel]
 
         absFilePath = os.path.abspath(__file__)
         print(absFilePath)
@@ -46,7 +54,7 @@ class EpaperDisplay:
         self.__fontAge = ImageFont.truetype(fontPath, 22)
         self.__fontTime = ImageFont.truetype(fontPath, 18)
 
-        self.__initTrendImages(self.__rectTrend.size)
+        self.__initTrendImages(self.__trendPanel.size)
         return None
 
     def open(self):
@@ -66,21 +74,19 @@ class EpaperDisplay:
             return
         self.__dirty = False
         if self.__screenMode == "egv":
-            self.__wipeImage(self.__hBlackImage)
-            self.__hBlackImage.paste(self.__areaBG.image, self.__areaBG.xy)
-            self.__hBlackImage.paste(self.__areaAge, self.__areaAge.xy)
-            self.__hBlackImage.paste(self.__areaTrend, self.__areaTrend.xy)
-            if self.__allDirty:
-                self.__allDirty = False
-                self.__epd.init(self.__epd.FULL_UPDATE)
-                self.__epd.display(self.__epd.getbuffer(self.__hBlackImage))
-            else:
-                self.__epd.init(self.__epd.PART_UPDATE)
-                self.__epd.displayPartial(self.__epd.getbuffer(self.__hBlackImage))
+            self.__wipeImage(self.__hPortraitImage)
+            self.__hPortraitImage.paste(self.__bgPanel.image, self.__bgPanel.xy)
+            #self.__hPortraitImage.paste(self.__agePanel, self.__agePanel.xy)
+            self.__hPortraitImage.paste(self.__trendPanel.image, self.__trendPanel.xy)
+
+            self.__epd.init(self.__epd.FULL_UPDATE)
+            self.__epd.display(self.__epd.getbuffer(self.__hPortraitImage))
             self.__epd.sleep()
         if self.__screenMode == "text":
+            self.__wipeImage(self.__hLandscapeImage)
+            self.__hLandscapeImage.paste(self.__bannerPanel.image, self.__bannerPanel.xy)
             self.__epd.init(self.__epd.FULL_UPDATE)
-            self.__epd.display(self.__epd.getbuffer(self.__hBlackImage))
+            self.__epd.display(self.__epd.getbuffer(self.__hLandscapeImage))
             self.__epd.sleep()
 
     def __wipeImage(self, img):
@@ -90,18 +96,23 @@ class EpaperDisplay:
         draw.rectangle(((0,0), img.size), fill = (255) )
         #size = (img.size[0]-1, img.size[1]-1)
         #draw.rectangle(((0,0), size), outline = (0), fill = (255) )
+    def __wipePanel(self, panel):
+        self.__wipeImage(panel.image)
 
     def clear(self):
         self.__epd.init(self.__epd.FULL_UPDATE)
         print("Clear...")
         self.__epd.Clear(0xFF)
         self.__epd.sleep()
-        for area in self.__allAreas:
-            self.__wipeImage(area.image)
-        self.__wipeImage(self.__hBlackImage)
+        for panel in self.__allPanels:
+            self.__wipePanel(panel)
+        self.__wipeImage(self.__hPortraitImage)
+        self.__wipeImage(self.__hLandscapeImage)
         self.__screenMode = ""
 
-    def show_centered(self, line0, line1):
+    def show_centered(self, logLevel, line0, line1):
+        if logLevel < minLogLevel:
+            return
         self.__setScreenModeToText()
         line0 = line0 if line0 is not None else ""
         line1 = line1 if line1 is not None else ""
@@ -109,40 +120,50 @@ class EpaperDisplay:
         self.__logger.debug("Display: " + line0 + " || " + line1)
         print("Display: " + line0 + " || " + line1)
 
-        self.__wipeImage(self.__hBlackImage)
-        draw = ImageDraw.Draw(self.__hBlackImage)
+        self.__wipePanel(self.__bannerPanel)
+        draw = ImageDraw.Draw(self.__bannerPanel.image)
         self.__drawText(draw, (5,5), line0, self.__fontMsg)
         self.__drawText(draw, (5,40), line1, self.__fontMsg)
         self.__dirty = True
         self.__updateScreen()
 
     def update(self, updates):
+        oldReading = False
+        if 'oldReading' in updates.keys():
+            oldReading = updates['oldReading']
         self.__setScreenModeToEgv()
-        if 'age' in updates.keys():
-            self.__update_age(updates['age'])
-        oldReading = 'oldreading' in updates.keys()
+
+        #if 'age' in updates.keys():
+        #    self.__update_age(updates['age'])
+
         if 'value' in updates.keys():
             self.__update_value(updates['value'], oldReading)
         if 'trend' in updates.keys():
-            print ('calling update_trend')
             self.__update_trend(updates['trend'], oldReading)
         self.__updateScreen()
 
     def __update_value(self, value, isOldReading):
-        valStr = "??" # this shouldn't happen
-        if (value is not None):
+        if self.__lastValue == value and self.__lastOld == isOldReading:
+            return
+        self.__lastValue = value
+        self.__lastOld = isOldReading
+
+        strikeThrough = isOldReading
+        valStr = ""
+        if (value is None):
+            strikeThrough = True
+        else:
             valStr = str(value)
         valStr = valStr.rjust(3)
         #print(valStr + "   " + str(mins))
-        self.__wipeImage(self.__areaBG.image)
-        drawBg = ImageDraw.Draw(self.__areaBG.image)
+        self.__wipePanel(self.__bgPanel)
+        drawBg = ImageDraw.Draw(self.__bgPanel.image)
         textXY = (5, 8)
 
         textSize = self.__drawText(drawBg, textXY, valStr, self.__fontBG)
         if (isOldReading):
             drawBg.line((textXY[0], textXY[1] + textSize[1]//2, textXY[0]+textSize[0], textXY[1] + textSize[1]//2), fill = 0, width=2)
         self.__dirty = True
-        self.__allDirty = True
 
     def __drawText(self, draw, xy, text, font):
         offset = font.getoffset(text)
@@ -159,13 +180,11 @@ class EpaperDisplay:
         if trend == self.__lastTrend:
             return
         self.__lastTrend = trend
-        self.__wipeImage(self.__areaTrend.image)
+        self.__wipePanel(self.__trendPanel)
         arrowImg = self.__get_trend_image(trend)
         if (arrowImg is not None):
-            print("pasting arrow img")
-            self.__areaTrend.image.paste(arrowImg, (0,0))
+            self.__trendPanel.image.paste(arrowImg, (0,0))
         self.__dirty = True
-        self.__allDirty = True
 
     def __update_age(self, mins):
         self.__setScreenModeToEgv()
@@ -182,8 +201,8 @@ class EpaperDisplay:
         now = now.replace("AM", "a").replace("PM", "p")
         now = now.rjust(6)
 
-        self.__wipeImage(self.__areaAge.image)
-        draw = ImageDraw.Draw(self.__areaAge.image)
+        self.__wipePanel(self.__agePanel)
+        draw = ImageDraw.Draw(self.__agePanel.image)
         self.__drawText(draw, (5,6), ageStr, self.__fontAge)
         self.__drawText(draw, (5,30), now, self.__fontTime)
         self.__dirty = True

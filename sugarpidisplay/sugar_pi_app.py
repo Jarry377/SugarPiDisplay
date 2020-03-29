@@ -37,6 +37,7 @@ class SugarPiApp():
 	interval_seconds = 300
 	ip_show_seconds = 6
 	ip_show_seconds_pc_mode = 2
+	oldReadingMinutes = 20
 	__args = {'debug_mode': False, 'pc_mode': False, 'epaper': False}
 
 	logger = None
@@ -179,7 +180,7 @@ class SugarPiApp():
 		ctx.setNextState(State.GetWifi)
 		ctx.setNextRunDelaySeconds(0)
 
-		self.glucoseDisplay.show_centered("Initializing", "")
+		self.glucoseDisplay.show_centered(logging.INFO, "Initializing", "")
 
 		while (not self.exit_event_handler.exit_now):
 			if (ctx.CurrentState == State.ReadValues or ctx.CurrentState == State.ReLogin):
@@ -213,13 +214,14 @@ class SugarPiApp():
 	def __updateTickers(self):
 		if self.LastReading is not None:
 			readingAgeMins = get_reading_age_minutes(self.LastReading.timestamp)
-			self.glucoseDisplay.update({'age': readingAgeMins})
+			oldReading = readingAgeMins >= self.oldReadingMinutes
+			self.glucoseDisplay.update({'age':readingAgeMins, 'value':self.LastReading.value, 'trend':self.LastReading.trend, 'oldReading':oldReading})
 
 		if (self.config['use_animation']):
 			self.glucoseDisplay.updateAnimation()
 
 	def __getWifi(self,ctx):
-		self.glucoseDisplay.show_centered("Waiting", "Wifi")
+		self.glucoseDisplay.show_centered(logging.DEBUG, "Waiting", "Wifi")
 		ip = get_ip_address('wlan0')
 		if (ip == ""):
 			ctx.setNextRunDelaySeconds(1)
@@ -230,7 +232,7 @@ class SugarPiApp():
 		if (ctx.IsNewState):
 			ip = get_ip_address('wlan0')
 			self.logger.info("Wifi IP: " + ip)
-			self.glucoseDisplay.show_centered(ip, "")
+			self.glucoseDisplay.show_centered(logging.INFO, ip, "")
 			seconds = self.ip_show_seconds_pc_mode if self.__args['pc_mode'] else self.ip_show_seconds
 			ctx.setRunDuration(seconds)
 			return
@@ -238,18 +240,18 @@ class SugarPiApp():
 			ctx.setNextState(State.LoadConfig)
 
 	def __runLoadConfig(self,ctx):
-		self.glucoseDisplay.show_centered("Loading", "Config")
+		self.glucoseDisplay.show_centered(logging.DEBUG, "Loading", "Config")
 		if (not self.__read_config() or not self.__get_reader()):
-			self.glucoseDisplay.show_centered("Invalid Config", "Will Retry")
+			self.glucoseDisplay.show_centered(logging.WARNING, "Invalid Config", "Will Retry")
 			ctx.setNextRunDelaySeconds(5)
 			return
 		ctx.setNextState(State.FirstLogin)
 
 	def __runFirstLogin(self,ctx):
-		self.glucoseDisplay.show_centered("Attempting", "Login")
+		self.glucoseDisplay.show_centered(logging.DEBUG, "Attempting", "Login")
 		if (not self.reader.login()):
 			ctx.setNextRunDelaySeconds(180)
-			self.glucoseDisplay.show_centered("Login Failed", "Will Retry")
+			self.glucoseDisplay.show_centered(logging.WARNING, "Login Failed", "Will Retry")
 			return
 		self.logger.info("Successful login")
 		ctx.setNextState(State.ReadValues)
@@ -257,15 +259,12 @@ class SugarPiApp():
 	def __runReLogin(self,ctx):
 		if (not self.reader.login()):
 			ctx.setNextState(State.FirstLogin)
-			self.glucoseDisplay.show_centered("Re-login Failed", "Will Retry")
+			self.glucoseDisplay.show_centered(logging.WARNING, "Re-login Failed", "Will Retry")
 			return
 		self.logger.info("Successful login refresh")
 		ctx.setNextState(State.ReadValues)
 
 	def __runReader(self,ctx):
-		if (ctx.IsNewState and ctx.PreviousState == State.FirstLogin):
-			self.glucoseDisplay.update({'oldreading':True})
-
 		resp = self.reader.get_latest_gv()
 		if 'errorMsg' in resp.keys():
 			ctx.setNextRunDelaySeconds(120)
@@ -276,10 +275,8 @@ class SugarPiApp():
 
 		reading = resp['reading']
 		readingAgeMins = get_reading_age_minutes(reading.timestamp)
-		if (readingAgeMins >= 20):
-			self.glucoseDisplay.update({'age':readingAgeMins, 'value':reading.value, 'trend':reading.trend, 'oldreading':True})
-		else:
-			self.glucoseDisplay.update({'age':readingAgeMins, 'value':reading.value, 'trend':reading.trend})
+		oldReading = readingAgeMins >= self.oldReadingMinutes
+		self.glucoseDisplay.update({'age':readingAgeMins, 'value':reading.value, 'trend':reading.trend, 'oldReading':oldReading})
 
 		isNewReading = ((self.LastReading is None) or (self.LastReading.timestamp != reading.timestamp))
 		self.LastReading = reading
