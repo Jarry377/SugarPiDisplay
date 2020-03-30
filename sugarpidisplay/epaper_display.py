@@ -1,5 +1,5 @@
 import sugarpidisplay.epd2in13_V2 as epd2in13
-import datetime
+from datetime import datetime
 import logging
 import os
 import time
@@ -197,7 +197,7 @@ class EpaperDisplay:
             ageStr = str(mins) + "m"
         ageStr = ageStr.rjust(4)
 
-        now = datetime.datetime.now().strftime('%I:%M%p')
+        now = datetime.now().strftime('%I:%M%p')
         now = now.replace("AM", "a").replace("PM", "p")
         now = now.rjust(6)
 
