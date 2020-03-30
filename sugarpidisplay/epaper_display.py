@@ -23,7 +23,6 @@ class EpaperDisplay:
     __hLandscapeImage = None
 
     __dirty = False
-    __allDirty = False
 
     __lastAge = 999
     __lastTrend = Trend.NONE
@@ -39,14 +38,13 @@ class EpaperDisplay:
         self.__hLandscapeImage = Image.new('1', (epd2in13.EPD_HEIGHT, epd2in13.EPD_WIDTH), 255)   # 250x122
 
         self.__bgPanel = Panel((0,0), (122,70))
-        self.__agePanel = Panel((0,70), (73,52))
+        self.__agePanel = Panel((0,70), (70,52))
         self.__trendPanel = Panel((70,70), (52,52))
         self.__bannerPanel = Panel((0,0), (epd2in13.EPD_HEIGHT, epd2in13.EPD_WIDTH))
 
         self.__allPanels = [self.__bgPanel, self.__agePanel, self.__trendPanel, self.__bannerPanel]
 
         absFilePath = os.path.abspath(__file__)
-        print(absFilePath)
         dir = os.path.dirname(absFilePath)
         fontPath = os.path.join(dir, 'Inconsolata-Regular.ttf')
         self.__fontMsg = ImageFont.truetype(fontPath, 30)
@@ -76,7 +74,7 @@ class EpaperDisplay:
         if self.__screenMode == "egv":
             self.__wipeImage(self.__hPortraitImage)
             self.__hPortraitImage.paste(self.__bgPanel.image, self.__bgPanel.xy)
-            #self.__hPortraitImage.paste(self.__agePanel, self.__agePanel.xy)
+            self.__hPortraitImage.paste(self.__agePanel.image, self.__agePanel.xy)
             self.__hPortraitImage.paste(self.__trendPanel.image, self.__trendPanel.xy)
 
             self.__epd.init(self.__epd.FULL_UPDATE)
@@ -133,13 +131,12 @@ class EpaperDisplay:
             oldReading = updates['oldReading']
         self.__setScreenModeToEgv()
 
-        #if 'age' in updates.keys():
-        #    self.__update_age(updates['age'])
-
         if 'value' in updates.keys():
             self.__update_value(updates['value'], oldReading)
         if 'trend' in updates.keys():
             self.__update_trend(updates['trend'], oldReading)
+        if self.__dirty:
+            self.__update_age(updates['time'], updates['age'])
         self.__updateScreen()
 
     def __update_value(self, value, isOldReading):
@@ -186,25 +183,28 @@ class EpaperDisplay:
             self.__trendPanel.image.paste(arrowImg, (0,0))
         self.__dirty = True
 
-    def __update_age(self, mins):
+    def __update_age(self, timestamp, age):
         self.__setScreenModeToEgv()
         #mins = (mins//2) * 2 # round to even number
-        if (mins == self.__lastAge):
-            return
-        self.__lastAge = mins
-        ageStr = "now"
-        if (mins > 0):
-            ageStr = str(mins) + "m"
-        ageStr = ageStr.rjust(4)
+        # if (mins == self.__lastAge):
+        #     return
+        # self.__lastAge = mins
+        # ageStr = "now"
+        # if (mins > 0):
+        #     ageStr = str(mins) + "m"
+        # ageStr = ageStr.rjust(4)
 
-        now = datetime.now().strftime('%I:%M%p')
-        now = now.replace("AM", "a").replace("PM", "p")
-        now = now.rjust(6)
+        # Get string in local time
+        # TODO - what I'm calling a timestamp is really a datetime.  need to rename
+
+        atTime = datetime.fromtimestamp(timestamp.timestamp()).strftime('%I:%M%p')
+        atTime = atTime.replace("AM", "a").replace("PM", "p")
+        atTime = atTime.rjust(6)
 
         self.__wipePanel(self.__agePanel)
         draw = ImageDraw.Draw(self.__agePanel.image)
-        self.__drawText(draw, (5,6), ageStr, self.__fontAge)
-        self.__drawText(draw, (5,30), now, self.__fontTime)
+        # self.__drawText(draw, (5,6), ageStr, self.__fontAge)
+        self.__drawText(draw, (5,12), atTime, self.__fontTime)
         self.__dirty = True
 
     def updateAnimation(self):
@@ -216,6 +216,8 @@ class EpaperDisplay:
             self.__screenMode = "egv"
             self.__lastAge = 999
             self.__lastTrend = Trend.NONE
+            self.__lastValue = None
+            self.__lastOld = False
 
     def __setScreenModeToText(self):
         if (not self.__screenMode == "text"):

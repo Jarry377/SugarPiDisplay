@@ -35,7 +35,7 @@ class SugarPiApp():
 	config_file = 'config.json'
 	pi_sugar_path = os.path.join(str(Path.home()), folder_name)
 	interval_seconds = 300
-	ip_show_seconds = 6
+	ip_show_seconds = 4
 	ip_show_seconds_pc_mode = 2
 	oldReadingMinutes = 20
 	__args = {'debug_mode': False, 'pc_mode': False, 'epaper': False}
@@ -215,7 +215,7 @@ class SugarPiApp():
 		if self.LastReading is not None:
 			readingAgeMins = get_reading_age_minutes(self.LastReading.timestamp)
 			oldReading = readingAgeMins >= self.oldReadingMinutes
-			self.glucoseDisplay.update({'age':readingAgeMins, 'value':self.LastReading.value, 'trend':self.LastReading.trend, 'oldReading':oldReading})
+			self.glucoseDisplay.update({'age':readingAgeMins, 'value':self.LastReading.value, 'trend':self.LastReading.trend, 'time':self.LastReading.timestamp, 'oldReading':oldReading})
 
 		if (self.config['use_animation']):
 			self.glucoseDisplay.updateAnimation()
@@ -276,7 +276,7 @@ class SugarPiApp():
 		reading = resp['reading']
 		readingAgeMins = get_reading_age_minutes(reading.timestamp)
 		oldReading = readingAgeMins >= self.oldReadingMinutes
-		self.glucoseDisplay.update({'age':readingAgeMins, 'value':reading.value, 'trend':reading.trend, 'oldReading':oldReading})
+		self.glucoseDisplay.update({'age':readingAgeMins, 'value':reading.value, 'trend':reading.trend, 'time':reading.timestamp, 'oldReading':oldReading})
 
 		isNewReading = ((self.LastReading is None) or (self.LastReading.timestamp != reading.timestamp))
 		self.LastReading = reading
