@@ -1,4 +1,6 @@
 from .trend import Trend
+from .graph import *
+
 
 class ConsoleDisplay:
 
@@ -21,6 +23,11 @@ class ConsoleDisplay:
 		text = (line0 if line0 is not None else "") + " || " + (line1 if line1 is not None else "")
 		self.__logger.debug("Display: " + text)
 		print(text)
+
+	def update(self,updates):
+		print("got update")
+		if 'readings' in updates.keys():
+			testDrawGraph(updates['readings'])
 
 	def update_value_time_trend(self,value,mins,trend):
 		valStr = "--"

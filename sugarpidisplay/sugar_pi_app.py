@@ -177,7 +177,10 @@ class SugarPiApp():
 
 	def run(self):
 		ctx = SugarPiApp.StateManager()
-		ctx.setNextState(State.GetWifi)
+		if (self.__args['pc_mode']):
+			ctx.setNextState(State.LoadConfig)
+		else:
+			ctx.setNextState(State.GetWifi)
 		ctx.setNextRunDelaySeconds(0)
 
 		self.glucoseDisplay.show_centered(logging.INFO, "Initializing", "")
@@ -273,10 +276,14 @@ class SugarPiApp():
 			ctx.setNextState(State.ReLogin)
 			return
 
-		reading = resp['reading']
+		readings = resp['reading']
+		reading = readings[0]
 		readingAgeMins = get_reading_age_minutes(reading.timestamp)
 		oldReading = readingAgeMins >= self.oldReadingMinutes
-		self.glucoseDisplay.update({'age':readingAgeMins, 'value':reading.value, 'trend':reading.trend, 'time':reading.timestamp, 'oldReading':oldReading})
+		self.glucoseDisplay.update(
+			{'age':readingAgeMins, 'value':reading.value,
+			'trend':reading.trend, 'time':reading.timestamp,
+			'oldReading':oldReading, 'readings': readings})
 
 		isNewReading = ((self.LastReading is None) or (self.LastReading.timestamp != reading.timestamp))
 		self.LastReading = reading

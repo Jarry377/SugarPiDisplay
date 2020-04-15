@@ -6,6 +6,7 @@ import time
 from PIL import Image,ImageDraw,ImageFont
 import traceback
 from .trend import Trend
+from .graph import *
 
 minLogLevel = logging.INFO
 
@@ -40,9 +41,10 @@ class EpaperDisplay:
         self.__bgPanel = Panel((0,0), (122,70))
         self.__agePanel = Panel((0,70), (70,52))
         self.__trendPanel = Panel((70,70), (52,52))
+        self.__graphPanel = Panel((0,122), (122,128))
         self.__bannerPanel = Panel((0,0), (epd2in13.EPD_HEIGHT, epd2in13.EPD_WIDTH))
 
-        self.__allPanels = [self.__bgPanel, self.__agePanel, self.__trendPanel, self.__bannerPanel]
+        self.__allPanels = [self.__bgPanel, self.__agePanel, self.__trendPanel, self.__graphPanel, self.__bannerPanel]
 
         absFilePath = os.path.abspath(__file__)
         dir = os.path.dirname(absFilePath)
@@ -76,6 +78,7 @@ class EpaperDisplay:
             self.__hPortraitImage.paste(self.__bgPanel.image, self.__bgPanel.xy)
             self.__hPortraitImage.paste(self.__agePanel.image, self.__agePanel.xy)
             self.__hPortraitImage.paste(self.__trendPanel.image, self.__trendPanel.xy)
+            self.__hPortraitImage.paste(self.__graphPanel.image, self.__graphPanel.xy)
 
             self.__epd.init(self.__epd.FULL_UPDATE)
             self.__epd.display(self.__epd.getbuffer(self.__hPortraitImage))
@@ -137,6 +140,9 @@ class EpaperDisplay:
             self.__update_trend(updates['trend'], oldReading)
         if self.__dirty:
             self.__update_age(updates['time'], updates['age'])
+            if 'readings' in updates.keys():
+                self.__update_graph(updates['readings'])
+
         self.__updateScreen()
 
     def __update_value(self, value, isOldReading):
@@ -205,6 +211,12 @@ class EpaperDisplay:
         draw = ImageDraw.Draw(self.__agePanel.image)
         # self.__drawText(draw, (5,6), ageStr, self.__fontAge)
         self.__drawText(draw, (5,12), atTime, self.__fontTime)
+        self.__dirty = True
+
+    def __update_graph(self, readings):
+        self.__wipePanel(self.__graphPanel)
+        draw = ImageDraw.Draw(self.__graphPanel.image)
+        drawGraph(draw, readings)
         self.__dirty = True
 
     def updateAnimation(self):
