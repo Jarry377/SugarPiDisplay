@@ -20,6 +20,8 @@
 - ``sudo apt-get install python3-pip``
 - ``sudo apt-get install python3-smbus``
 - ``sudo apt-get install git``
+- ``sudo apt-get install libopenjp2-7-dev``
+- ``sudo apt install libtiff5``
 - ``pip3 install RPi.GPIO``
 - ``pip3 install spidev``
 - ``pip3 install Pillow``
